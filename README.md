@@ -203,6 +203,11 @@ this: `journalctl -u nitter.service` (add `--follow` to see just the last 15
 lines). If you're running the Docker image, you can do this:
 `docker logs --follow *nitter container id*`
 
+## Repository origin
+
+This repository was developed based on both `zedeus/nitter` and its fork `PrivacyDevel/nitter`.
+For development history and reference, both repositories were used as sources of inspiration.
+
 ## Contact
 
 Feel free to join our [Matrix channel](https://matrix.to/#/#nitter:matrix.org).

@@ -19,7 +19,12 @@ const
     Api.list: 500,
     Api.listTweets: 500,
     Api.listMembers: 500,
-    Api.listBySlug: 500
+    Api.listBySlug: 500,
+    Api.favorites: 500,
+    Api.favoriters: 500,
+    Api.retweeters: 500,
+    Api.following: 500,
+    Api.followers: 500
   }.toTable
 
 var

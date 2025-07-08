@@ -493,3 +493,39 @@ proc parseGraphSearch*[T: User | Tweets](js: JsonNode; after=""): Result[T] =
     elif typ == "TimelineReplaceEntry":
       if instruction{"entry_id_to_replace"}.getStr.startsWith("cursor-bottom"):
         result.bottom = instruction{"entry", "content", "value"}.getStr
+
+proc parseGraphUsersTimeline(js: JsonNode; root: string): UsersTimeline =
+  if js.isNull: return
+  
+  let instructions = ? js{"data", "user_result", "result", root, "timeline", "instructions"}
+  if instructions.isNull: return
+
+  result = Result[User](beginning: true)
+  for i in instructions:
+    let typ = i{"type"}.getStr
+    if typ == "TimelineAddEntries":
+      for e in i{"entries"}:
+        let entry = e{"entryId"}.getStr
+        if "user-" in entry:
+          let user = parseGraphUser(e{"content", "itemContent", "user_results", "result"})
+          if user.id.len > 0:
+            result.content.add user
+        elif "cursor-bottom" in entry:
+          result.bottom = e{"content", "value"}.getStr
+    elif typ == "TimelineReplaceEntry":
+      if "cursor-bottom" in i{"entry", "entryId"}.getStr:
+        result.bottom = i{"entry", "content", "value"}.getStr
+
+proc parseGraphFavoritersTimeline*(js: JsonNode; tweetId: string): UsersTimeline =
+  if js.isNull or "data" notin js: return
+  result = parseGraphUsersTimeline(js, "favoriters_timeline")
+
+proc parseGraphRetweetersTimeline*(js: JsonNode; tweetId: string): UsersTimeline =
+  if js.isNull or "data" notin js: return
+  result = parseGraphUsersTimeline(js, "retweeters_timeline")
+
+proc parseGraphFollowTimeline*(js: JsonNode; userId: string): UsersTimeline =
+  if js.isNull or "data" notin js: return
+  let user = js{"data", "user_result", "result"}
+  if user.isNull: return
+  result = parseGraphUsersTimeline(js, "timeline")
