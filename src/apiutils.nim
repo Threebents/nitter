@@ -8,27 +8,9 @@ import config
 const
   rlRemaining = "x-rate-limit-remaining"
   rlReset = "x-rate-limit-reset"
+  errorsToSkip = {doesntExist, tweetNotFound, timeout, unauthorized, badRequest}
 
 var pool: HttpPool
-
-proc genParams*(pars: openArray[(string, string)] = @[]; cursor="";
-                count="20"; ext=true): seq[(string, string)] =
-  result = timelineParams
-  for p in pars:
-    result &= p
-  if ext:
-    result &= ("include_ext_alt_text", "1")
-    result &= ("include_ext_media_stats", "1")
-    result &= ("include_ext_media_availability", "1")
-  if count.len > 0:
-    result &= ("count", count)
-  if cursor.len > 0:
-    # The raw cursor often has plus signs, which sometimes get turned into spaces,
-    # so we need to turn them back into a plus
-    if " " in cursor:
-      result &= ("cursor", cursor.replace(" ", "+"))
-    else:
-      result &= ("cursor", cursor)
 
 proc getOauthHeader(url, oauthToken, oauthTokenSecret: string): string =
   let
@@ -55,7 +37,7 @@ proc genHeaders*(url, oauthToken, oauthTokenSecret: string): HttpHeaders =
     "authorization": header,
     "content-type": "application/json",
     "x-twitter-active-user": "yes",
-    "authority": "api.twitter.com",
+    "authority": "api.x.com",
     "accept-encoding": "gzip",
     "accept-language": "en-US,en;q=0.9",
     "accept": "*/*",
@@ -73,14 +55,14 @@ template fetchImpl(result, additional_headers, fetchBody) {.dirty.} =
   once:
     pool = HttpPool()
 
-  var account = await getGuestAccount(api)
-  if account.oauthToken.len == 0:
-    echo "[accounts] Empty oauth token, account: ", account.id
+  var session = await getSession(api)
+  if session.oauthToken.len == 0:
+    echo "[sessions] Empty oauth token, session: ", session.id
     raise rateLimitError()
 
   try:
     var resp: AsyncResponse
-    var headers = genHeaders($url, account.oauthToken, account.oauthSecret)
+    var headers = genHeaders($url, session.oauthToken, session.oauthSecret)
     for key, value in additional_headers.pairs():
       headers.add(key, value)
     pool.use(headers):
@@ -101,7 +83,7 @@ template fetchImpl(result, additional_headers, fetchBody) {.dirty.} =
       let
         remaining = parseInt(resp.headers[rlRemaining])
         reset = parseInt(resp.headers[rlReset])
-      account.setRateLimit(api, remaining, reset)
+      session.setRateLimit(api, remaining, reset)
 
     if result.len > 0:
       if resp.headers.getOrDefault("content-encoding") == "gzip":
@@ -109,23 +91,25 @@ template fetchImpl(result, additional_headers, fetchBody) {.dirty.} =
 
       if result.startsWith("{\"errors"):
         let errors = result.fromJson(Errors)
-        if errors in {expiredToken, badToken}:
-          echo "fetch error: ", errors
-          invalidate(account)
-          raise rateLimitError()
-        elif errors in {rateLimited}:
-          # rate limit hit, resets after 24 hours
-          setLimited(account, api)
-          raise rateLimitError()
+        if errors notin errorsToSkip:
+          echo "Fetch error, API: ", api, ", errors: ", errors
+          if errors in {expiredToken, badToken, locked}:
+            invalidate(session)
+            raise rateLimitError()
+          elif errors in {rateLimited}:
+            # rate limit hit, resets after 24 hours
+            setLimited(session, api)
+            raise rateLimitError()
       elif result.startsWith("429 Too Many Requests"):
-        echo "[accounts] 429 error, API: ", api, ", account: ", account.id
-        account.apis[api].remaining = 0
+        echo "[sessions] 429 error, API: ", api, ", session: ", session.id
+        session.apis[api].remaining = 0
         # rate limit hit, resets after the 15 minute window
         raise rateLimitError()
 
     fetchBody
 
     if resp.status == $Http400:
+      echo "ERROR 400, ", api, ": ", result
       raise newException(InternalError, $url)
   except InternalError as e:
     raise e
@@ -134,17 +118,17 @@ template fetchImpl(result, additional_headers, fetchBody) {.dirty.} =
   except OSError as e:
     raise e
   except Exception as e:
-    let id = if account.isNil: "null" else: $account.id
-    echo "error: ", e.name, ", msg: ", e.msg, ", accountId: ", id, ", url: ", url
+    let id = if session.isNil: "null" else: $session.id
+    echo "error: ", e.name, ", msg: ", e.msg, ", sessionId: ", id, ", url: ", url
     raise rateLimitError()
   finally:
-    release(account)
+    release(session)
 
 template retry(bod) =
   try:
     bod
   except RateLimitError:
-    echo "[accounts] Rate limited, retrying ", api, " request..."
+    echo "[sessions] Rate limited, retrying ", api, " request..."
     bod
 
 proc fetch*(url: Uri; api: Api; additional_headers: HttpHeaders = newHttpHeaders()): Future[JsonNode] {.async.} =
@@ -159,10 +143,11 @@ proc fetch*(url: Uri; api: Api; additional_headers: HttpHeaders = newHttpHeaders
         result = newJNull()
 
       let error = result.getError
-      if error in {expiredToken, badToken}:
-        echo "fetchBody error: ", error
-        invalidate(account)
-        raise rateLimitError()
+      if error != null and error notin errorsToSkip:
+        echo "Fetch error, API: ", api, ", error: ", error
+        if error in {expiredToken, badToken, locked}:
+          invalidate(session)
+          raise rateLimitError()
 
 proc fetchRaw*(url: Uri; api: Api; additional_headers: HttpHeaders = newHttpHeaders()): Future[string] {.async.} =
   retry:

@@ -37,7 +37,8 @@ proc proxyMedia*(req: jester.Request; url: string): Future[HttpCode] {.async.} =
   try:
     let res = await client.get(url)
     if res.status != "200 OK":
-      echo "[media] Proxying failed, status: $1, url: $2" % [res.status, url]
+      if res.status != "404 Not Found":
+        echo "[media] Proxying failed, status: $1, url: $2" % [res.status, url]
       return Http404
 
     let hashed = $hash(url)
@@ -122,7 +123,7 @@ proc createMediaRouter*(cfg: Config) =
       cond "http" in url
 
       if getHmac(url) != request.matches[1]:
-        resp showError("Failed to verify signature", cfg)
+        resp Http403, showError("Failed to verify signature", cfg)
 
       if ".mp4" in url or ".ts" in url or ".m4s" in url:
         let code = await proxyMedia(request, url)

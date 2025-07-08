@@ -6,6 +6,7 @@ genPrefsType()
 
 type
   RateLimitError* = object of CatchableError
+  NoSessionsError* = object of CatchableError
   InternalError* = object of CatchableError
   BadClientError* = object of CatchableError
 
@@ -15,7 +16,6 @@ type
   Api* {.pure.} = enum
     tweetDetail
     tweetResult
-    photoRail
     search
     list
     listBySlug
@@ -35,14 +35,14 @@ type
   RateLimit* = object
     remaining*: int
     reset*: int
-    limited*: bool
-    limitedAt*: int
 
-  GuestAccount* = ref object
+  Session* = ref object
     id*: int64
     oauthToken*: string
     oauthSecret*: string
     pending*: int
+    limited*: bool
+    limitedAt*: int
     apis*: Table[Api, RateLimit]
 
   Error* = enum
@@ -50,8 +50,10 @@ type
     noUserMatches = 17
     protectedUser = 22
     missingParams = 25
+    timeout = 29
     couldntAuth = 32
     doesntExist = 34
+    unauthorized = 37
     invalidParam = 47
     userNotFound = 50
     suspended = 63
@@ -61,7 +63,9 @@ type
     tweetNotFound = 144
     tweetNotAuthorized = 179
     forbidden = 200
+    badRequest = 214
     badToken = 239
+    locked = 326
     noCsrf = 353
     tweetUnavailable = 421
     tweetCensored = 422

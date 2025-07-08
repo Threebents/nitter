@@ -17,9 +17,12 @@ const instancesUrl = "https://github.com/zedeus/nitter/wiki/Instances"
 const issuesUrl = "https://github.com/zedeus/nitter/issues"
 
 let
-  accountsPath = getEnv("NITTER_ACCOUNTS_FILE", "./guest_accounts.json")
+  configPath = getEnv("NITTER_CONF_FILE", "./nitter.conf")
+  (cfg, fullCfg) = getConfig(configPath)
 
-initAccountPool(cfg, accountsPath)
+  sessionsPath = getEnv("NITTER_SESSIONS_FILE", "./sessions.jsonl")
+
+initSessionPool(cfg, sessionsPath)
 
 if not cfg.enableDebug:
   # Silence Jester's query warning
@@ -94,6 +97,11 @@ routes:
     const link = a("another instance", href = instancesUrl)
     resp Http429, showError(
       &"Instance has been rate limited.<br>Use {link} or try again later.", cfg)
+
+  error NoSessionsError:
+    const link = a("another instance", href = instancesUrl)
+    resp Http429, showError(
+      &"Instance has no auth tokens, or is fully rate limited.<br>Use {link} or try again later.", cfg)
 
   extend rss, ""
   extend status, ""
