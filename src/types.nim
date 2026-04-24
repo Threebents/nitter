@@ -244,6 +244,7 @@ type
     replies*: int
     retweets*: int
     likes*: int
+    quotes*: int
     views*: int
 
   Tweet* = ref object

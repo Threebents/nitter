@@ -225,12 +225,18 @@ func formatStat(stat: int): string =
   if stat > 0: insertSep($stat, ',')
   else: ""
 
-proc renderStats(stats: TweetStats): VNode =
+proc renderStats(stats: TweetStats; tweet: Tweet): VNode =
   buildHtml(tdiv(class="tweet-stats")):
-    span(class="tweet-stat"): icon "comment", formatStat(stats.replies)
-    span(class="tweet-stat"): icon "retweet", formatStat(stats.retweets)
-    span(class="tweet-stat"): icon "heart", formatStat(stats.likes)
-    span(class="tweet-stat"): icon "views", formatStat(stats.views)
+    a(href=getLink(tweet)):
+      span(class="tweet-stat"): icon "comment", formatStat(stats.replies)
+    a(href=getLink(tweet, false) & "/retweeters"):
+      span(class="tweet-stat"): icon "retweet", formatStat(stats.retweets)
+    a(href="/search?q=quoted_tweet_id:" & $tweet.id):
+      span(class="tweet-stat"): icon "quote", formatStat(stats.quotes)
+    a(href=getLink(tweet, false) & "/favoriters"):
+      span(class="tweet-stat"): icon "heart", formatStat(stats.likes)
+    a(href=getLink(tweet)):
+      span(class="tweet-stat"): icon "views", formatStat(stats.views)
 
 proc renderReply(tweet: Tweet): VNode =
   buildHtml(tdiv(class="replying-to")):
