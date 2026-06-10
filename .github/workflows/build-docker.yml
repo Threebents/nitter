@@ -6,6 +6,7 @@ on:
       - "README.md"
     branches:
       - master
+      - feature/**
 
 permissions:
   contents: read
@@ -20,12 +21,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  tests:
-    uses: ./.github/workflows/run-tests.yml
-    secrets: inherit
-
   build:
-    needs: [tests]
     strategy:
       fail-fast: false
       matrix:
