@@ -18,24 +18,47 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  setup:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        env:
+          # Comma-separated list of platforms to build, e.g. "linux/amd64" or
+          # "linux/amd64,linux/arm64". Override by setting the repository
+          # variable BUILD_PLATFORMS (Settings > Secrets and variables > Actions > Variables).
+          BUILD_PLATFORMS: ${{ vars.BUILD_PLATFORMS || 'linux/amd64,linux/arm64' }}
+        run: |
+          include="[]"
+          IFS=',' read -ra PLATFORMS <<< "$BUILD_PLATFORMS"
+          for platform in "${PLATFORMS[@]}"; do
+            platform="$(echo "$platform" | xargs)"
+            case "$platform" in
+              linux/amd64) runner=ubuntu-24.04 ;;
+              linux/arm64) runner=ubuntu-24.04-arm ;;
+              *) echo "Unsupported platform: $platform" >&2; exit 1 ;;
+            esac
+            include=$(echo "$include" | jq -c --arg runner "$runner" --arg platform "$platform" '. + [{"runner": $runner, "platform": $platform}]')
+          done
+          echo "matrix={\"include\":$include}" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: setup
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            platform: linux/amd64
-          - runner: ubuntu-24.04-arm
-            platform: linux/arm64
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Prepare platform name
         run: echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
         env:
           platform: ${{ matrix.platform }}
+
+      - name: Set image name
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v6
 
@@ -80,6 +103,9 @@ jobs:
     needs: [build]
     runs-on: ubuntu-24.04
     steps:
+      - name: Set image name (lowercase)
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
