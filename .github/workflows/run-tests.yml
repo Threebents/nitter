@@ -6,6 +6,8 @@ on:
       - "*.md"
     branches-ignore:
       - master
+      # Ignore pushes to feature branches, as they will trigger the workflow when the PR is opened.
+      - feature/**
   workflow_call:
 
 # Ensure that multiple runs on the same branch do not overlap.
