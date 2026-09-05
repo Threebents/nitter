@@ -81,6 +81,9 @@ proc renderHead*(prefs: Prefs; cfg: Config; req: Request; titleText=""; desc="";
     if prefs.infiniteScroll:
       script(src="/js/infiniteScroll.js", `defer`="")
 
+    if prefs.localTime:
+      script(src="/js/localTime.js", `defer`="")
+
     title:
       if titleText.len > 0:
         text titleText & " | " & cfg.title

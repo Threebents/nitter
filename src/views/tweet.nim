@@ -53,7 +53,9 @@ proc renderHeader(tweet: Tweet; retweet: string; pinned: bool; prefs: Prefs;
           linkUser(tweet.user, class="username")
 
         span(class="tweet-date"):
-          a(href=getLink(tweet), title=tweet.getTime):
+          a(href=getLink(tweet), title=tweet.getTime,
+            `data-utc`=tweet.getIsoTime, `data-utc-text`="short",
+            `data-utc-title`="full"):
             text tweet.getShortTime
 
 proc renderAltText(altText: string): VNode =
@@ -338,7 +340,9 @@ proc renderQuote(quote: Tweet; prefs: Prefs; path: string): VNode =
         linkUser(quote.user, class="username")
 
       span(class="tweet-date"):
-        a(href=getLink(quote), title=quote.getTime):
+        a(href=getLink(quote), title=quote.getTime,
+          `data-utc`=quote.getIsoTime, `data-utc-text`="short",
+          `data-utc-title`="full"):
           text quote.getShortTime
 
     if quote.reply.len > 0:
@@ -465,9 +469,12 @@ proc renderTweet*(tweet: Tweet; prefs: Prefs; path: string; class=""; index=0;
         p(class="tweet-published"): 
           if hasEdits and isLatest:
             a(href=(getLink(tweet, focus=false) & "/history")):
-              text &"Last edited {getTime(tweet)}"
+              text "Last edited "
+              span(`data-utc`=tweet.getIsoTime, `data-utc-text`="full"):
+                text getTime(tweet)
           else:
-            text &"{getTime(tweet)}"
+            span(`data-utc`=tweet.getIsoTime, `data-utc-text`="full"):
+              text getTime(tweet)
 
         if hasEdits and not isLatest:
           renderLatestPost(tweet.user.username, max(tweet.history))

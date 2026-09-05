@@ -66,7 +66,9 @@ proc renderUserCard*(user: User; prefs: Prefs; info: AccountInfo): VNode =
             a(href=url): text url.shortLink
 
       tdiv(class="profile-joindate"):
-        a(href=(&"/{user.username}/about"), title=getJoinDateFull(user)):
+        a(href=(&"/{user.username}/about"), title=getJoinDateFull(user),
+          `data-utc`=getIsoTime(user.joinDate), `data-utc-text`="joined",
+          `data-utc-title`="joined-full"):
           icon "calendar", getJoinDate(user)
 
       tdiv(class="profile-card-extra-links"):

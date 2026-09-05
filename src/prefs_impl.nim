@@ -57,6 +57,9 @@ genPrefs:
     infiniteScroll(checkbox, false):
       "Infinite scrolling (experimental, requires JavaScript)"
 
+    localTime(checkbox, false):
+      "Show timestamps in your local timezone (requires JavaScript)"
+
     stickyProfile(checkbox, true):
       "Make profile sidebar stick to top"
 

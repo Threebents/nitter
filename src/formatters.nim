@@ -151,6 +151,14 @@ proc getTime*(tweet: Tweet): string =
   if tweet.time.year == 0: return ""
   tweet.time.format("MMM d', 'YYYY' · 'h:mm tt' UTC'")
 
+proc getIsoTime*(time: DateTime): string =
+  ## Machine readable UTC instant, consumed by public/js/localTime.js
+  if time.year == 0: return ""
+  time.format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+
+proc getIsoTime*(tweet: Tweet): string =
+  getIsoTime(tweet.time)
+
 proc getRfc822Time*(tweet: Tweet): string =
   if tweet.time.year == 0: return ""
   tweet.time.format("ddd', 'dd MMM yyyy HH:mm:ss 'GMT'")

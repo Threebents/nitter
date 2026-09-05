@@ -207,7 +207,9 @@ proc renderArticle*(article: Article; tweets: Table[int64, Tweet];
             linkUser(author, class="username")
             span(class="article-date-sep"): text " · "
             a(class="article-date",
-              href=("/" & author.username & "/status/" & tweetId)):
+              href=("/" & author.username & "/status/" & tweetId),
+              `data-utc`=article.time.getIsoTime, `data-utc-text`="short",
+              `data-utc-title`="full"):
               text article.time.getShortTime
       if not prefs.hideTweetStats:
         renderStats(article.stats)
