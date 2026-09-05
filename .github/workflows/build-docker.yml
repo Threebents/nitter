@@ -6,6 +6,9 @@ on:
       - "README.md"
     branches:
       - master
+      - feature/**
+  # Lets any branch be built on demand from the Actions tab.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -84,6 +87,20 @@ jobs:
       - name: Set image name
         run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
+      # master publishes "latest"; every other branch publishes under its own
+      # slug (feature/js-local-time -> feature-js-local-time), so test builds
+      # never overwrite the tags that deployments follow.
+      - name: Set image tag
+        run: |
+          if [ "$GITHUB_REF_NAME" = "master" ]; then
+            tag=latest
+          else
+            tag="${GITHUB_REF_NAME//[^a-zA-Z0-9._-]/-}"
+            tag="${tag,,}"
+          fi
+          echo "IMAGE_TAG=${tag}" >> "$GITHUB_ENV"
+          echo "Publishing as ${tag}"
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
@@ -102,7 +119,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create multi-arch manifest (latest + commit SHA)
+      - name: Create multi-arch manifest (branch tag + commit SHA)
         working-directory: ${{ runner.temp }}/digests
         run: |
           sources=()
@@ -110,7 +127,7 @@ jobs:
             sources+=("${REGISTRY}/${IMAGE_NAME}@sha256:$(basename "$f")")
           done
           docker buildx imagetools create \
-            -t "${REGISTRY}/${IMAGE_NAME}:latest" \
+            -t "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" \
             -t "${REGISTRY}/${IMAGE_NAME}:${{ github.sha }}" \
             "${sources[@]}"
 
@@ -119,10 +136,10 @@ jobs:
         run: |
           arm_digest=$(basename "$(ls digests-linux-arm64/*)")
           docker buildx imagetools create \
-            -t "${REGISTRY}/${IMAGE_NAME}:latest-arm64" \
+            -t "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}-arm64" \
             "${REGISTRY}/${IMAGE_NAME}@sha256:${arm_digest}"
 
       - name: Inspect images
         run: |
-          docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:latest"
-          docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:latest-arm64"
+          docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+          docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}-arm64"
